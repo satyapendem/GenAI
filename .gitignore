@@ -18,3 +18,7 @@ coverage/
 .venv/
 venv/
 chroma_db/
+chroma/
+data/
+training_data/
+processed/

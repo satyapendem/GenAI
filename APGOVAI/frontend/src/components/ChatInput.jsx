@@ -1,32 +1,105 @@
-import { useState } from 'react'
+import {
+  useState,
+} from 'react'
 
 
-export default function ChatInput({ onSend, loading }) {
-  const [input, setInput] = useState('')
+export default function ChatInput({
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  onSend,
 
-    if (!input.trim() || loading) {
-      return
+  loading,
+
+  placeholder,
+
+}) {
+
+  const [
+    input,
+
+    setInput,
+
+  ] = useState(
+    ''
+  )
+
+
+  const submit =
+    (
+      e
+    ) => {
+
+      e.preventDefault()
+
+      if (
+        !input.trim()
+        ||
+        loading
+      ) {
+
+        return
+
+      }
+
+      onSend(
+        input
+      )
+
+      setInput(
+        ''
+      )
+
     }
 
-    onSend(input)
-    setInput('')
-  }
 
   return (
-    <form className="chat-input-form" onSubmit={handleSubmit}>
+
+    <form
+
+      className='chat-input-form'
+
+      onSubmit={
+        submit
+      }
+
+    >
+
       <input
-        type="text"
-        placeholder="Ask something about your PDFs..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
+
+        value={
+          input
+        }
+
+        onChange={
+          e =>
+
+            setInput(
+
+              e.target.value
+
+            )
+        }
+
+        placeholder={
+          placeholder
+        }
+
       />
 
-      <button type="submit" disabled={loading}>
-        {loading ? 'Thinking...' : 'Send'}
+
+      <button
+
+        disabled={
+          loading
+        }
+
+      >
+
+        Send
+
       </button>
+
     </form>
+
   )
+
 }

@@ -1,12 +1,38 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 
-from app.models import ChatRequest
-from app.rag_chain import stream_answer
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
+
+from app.api.chat import (
+    router as chat_router,
+)
+
+from app.database.init_db import (
+    create_tables,
+)
+
+from app.api.auth import (
+    router as auth_router,
+)
+
+from app.api.admin import (
+    router as admin_router,
+)
+
+from app.database.bootstrap import (
+    create_default_admin,
+)
+
+app = FastAPI()
 
 
-app = FastAPI(title="Simple RAG Chat API")
+@app.on_event("startup")
+def startup():
+
+    create_tables()
+
+    create_default_admin()
 
 
 app.add_middleware(
@@ -17,17 +43,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
+
+app.include_router(admin_router)
+
+app.include_router(
+    chat_router,
+)
+
 
 @app.get("/")
 def root():
-    return {"message": "RAG API is running"}
 
-
-@app.post("/chat")
-async def chat(request: ChatRequest):
-
-    async def generate():
-        async for chunk in stream_answer(request.question):
-            yield chunk
-
-    return StreamingResponse(generate(), media_type="text/plain")
+    return {
+        "message": "APGovAI Running",
+    }

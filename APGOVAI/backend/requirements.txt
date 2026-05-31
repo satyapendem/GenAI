@@ -1,13 +1,135 @@
+#
+# =====================================
+# FastAPI
+# =====================================
+#
+
 fastapi
 uvicorn
+python-dotenv
+python-multipart
+sse-starlette
+
+
+#
+# =====================================
+# AI / ML
+# =====================================
+#
+
+torch
+transformers
+sentence-transformers
+accelerate
+numpy
+
+
+#
+# =====================================
+# Vector Database
+# =====================================
+#
+
+qdrant-client
+
+
+#
+# =====================================
+# PDF Processing
+# =====================================
+#
+
+pymupdf
+pdfplumber
+pypdf
+pdf2image
+
+
+#
+# =====================================
+# OCR
+# =====================================
+#
+
+pytesseract
+pillow
+
+
+#
+# =====================================
+# Document Processing
+# =====================================
+#
+
+python-docx
+docx2txt
+
+openpyxl
+xlrd
+pandas
+
+python-pptx
+
+
+#
+# =====================================
+# HTML / Text Processing
+# =====================================
+#
+
+beautifulsoup4
+lxml
+
+
+#
+# =====================================
+# Language Detection
+# =====================================
+#
+
+langdetect
+
+
+#
+# =====================================
+# HTTP
+# =====================================
+#
+
+requests
+httpx
+
+
+#
+# =====================================
+# Utilities
+# =====================================
+#
+
+tqdm
+orjson
+
+#
+# =====================================
+# LangChain
+# =====================================
+#
+
 langchain
 langchain-community
-langchain-core
-langchain-ollama
-langchain-text-splitters
-chromadb
-pypdf
-python-dotenv
-sentence-transformers
-langdetect
-deep-translator
+
+#
+# =====================================
+# Development
+# =====================================
+#
+
+black
+ruff
+
+sqlalchemy
+psycopg[binary]
+alembic
+python-jose[cryptography]
+passlib[argon2]
+redis

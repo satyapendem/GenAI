@@ -1,26 +1,93 @@
-const API_URL = 'http://localhost:8000/chat'
+export async function sendMessage(
+  question,
+  onChunk,
+) {
 
+  const response =
+    await fetch(
 
-export async function streamChat(question, onChunk) {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ question }),
-  })
+      "http://localhost:8000/chat",
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
+      {
+
+        method: "POST",
+
+        headers: {
+
+          "Content-Type":
+            "application/json",
+
+        },
+
+        body: JSON.stringify({
+
+          question,
+
+        }),
+
+      },
+
+    )
+
+  if (!response.ok) {
+
+    throw new Error(
+      "API Error"
+    )
+
+  }
+
+  if (!response.body) {
+
+    throw new Error(
+      "No response body"
+    )
+
+  }
+
+  const reader =
+    response.body.getReader()
+
+  const decoder =
+    new TextDecoder()
 
   while (true) {
-    const { done, value } = await reader.read()
+
+    const {
+
+      done,
+
+      value,
+
+    } = await reader.read()
 
     if (done) {
+
       break
+
     }
 
-    const chunk = decoder.decode(value)
-    onChunk(chunk)
+    const chunk =
+      decoder.decode(
+
+        value,
+
+        {
+
+          stream: true,
+
+        }
+
+      )
+
+    if (chunk) {
+
+      onChunk(
+        chunk
+      )
+
+    }
+
   }
+
 }

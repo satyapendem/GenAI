@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+
+  postgres:
+
+    image: postgres:16
+
+    container_name: apgovai-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: apgovai
+      POSTGRES_USER: apgovai
+      POSTGRES_PASSWORD: apgovai123
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+
+    image: redis:7
+
+    container_name: apgovai-redis
+
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+  qdrant:
+
+    image: qdrant/qdrant
+
+    container_name: apgovai-qdrant
+
+    restart: unless-stopped
+
+    ports:
+      - "6333:6333"
+
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+
+  postgres_data:
+
+  qdrant_data:

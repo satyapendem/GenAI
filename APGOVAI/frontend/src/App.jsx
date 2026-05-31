@@ -1,68 +1,190 @@
-import { useState } from 'react'
+import { useEffect, useState } from "react";
 
-import ChatWindow from './components/ChatWindow'
-import ChatInput from './components/ChatInput'
+import ChatWindow from "./components/ChatWindow";
+import ChatInput from "./components/ChatInput";
 
-import { streamChat } from './api'
+import { sendMessage } from "./api";
 
+import logo from "./assets/ap_logo.png";
+import cm from "./assets/cm.png";
+import deputy from "./assets/deputy_cm.png";
+import minister from "./assets/it_minister.png";
+
+import "./styles.css";
+
+const CONTENT = {
+  subtitle: "AI Assistant for Andhra Pradesh Government",
+  title: "How can I help you today?",
+  description:
+    "Ask APGovAI about Government Orders, Budgets, Policies, Circulars, Reports and Acts.",
+  placeholder: "Ask APGovAI...",
+};
 
 export default function App() {
-  const [messages, setMessages] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [messages, setMessages] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const storedHistory = localStorage.getItem("apgovai_history");
 
-  const handleSend = async (question) => {
-    setLoading(true)
+    if (storedHistory) {
+      setHistory(JSON.parse(storedHistory));
+    }
+  }, []);
 
-    const userMessage = {
-      role: 'user',
-      text: question,
+  async function handleSend(question) {
+    if (!question.trim()) {
+      return;
     }
 
-    const assistantMessage = {
-      role: 'assistant',
-      text: '',
-    }
+    setLoading(true);
 
     setMessages((prev) => [
       ...prev,
-      userMessage,
-      assistantMessage,
-    ])
+      {
+        role: "user",
+        text: question,
+      },
+      {
+        role: "assistant",
+        answer: "",
+      },
+    ]);
 
-    let streamedText = ''
+    try {
+      await sendMessage(question, (chunk) => {
+        setMessages((prev) => {
+          const updated = [...prev];
 
-    await streamChat(question, (chunk) => {
-      streamedText += chunk
+          const lastMessage =
+            updated[updated.length - 1];
 
-      setMessages((prev) => {
-        const updated = [...prev]
+          updated[updated.length - 1] = {
+            role: "assistant",
+            answer:
+              (lastMessage?.answer || "") +
+              chunk,
+          };
 
-        updated[updated.length - 1] = {
-          role: 'assistant',
-          text: streamedText,
-        }
+          return updated;
+        });
+      });
 
-        return updated
-      })
-    })
+      const updatedHistory = [
+        {
+          question,
+          time: new Date().toLocaleString(),
+        },
+        ...history,
+      ];
 
-    setLoading(false)
+      setHistory(updatedHistory);
+
+      localStorage.setItem(
+        "apgovai_history",
+        JSON.stringify(updatedHistory)
+      );
+    } catch (error) {
+      console.error("Chat Error:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
-
   return (
-    <div className="app-container">
-      <div className="chat-card">
-        <h1>Welcome to APGOVAI</h1>
+    <div className="layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <h3>Chats</h3>
 
-        <ChatWindow messages={messages} />
+        {history.map((chat, index) => (
+          <div
+            key={index}
+            className="history"
+          >
+            {chat.question}
+          </div>
+        ))}
+      </aside>
 
-        <ChatInput
-          onSend={handleSend}
-          loading={loading}
-        />
+      {/* Main Content */}
+      <div className="main">
+        {/* Header */}
+        <header className="header">
+          <div className="brand">
+            <img
+              src={logo}
+              alt="APGovAI"
+              className="logo"
+            />
+
+            <div>
+              <h1>APGovAI</h1>
+
+              <p className="subtitle">
+                {CONTENT.subtitle}
+              </p>
+            </div>
+          </div>
+
+          <div className="leaders">
+            <div>
+              <img
+                src={cm}
+                alt="Chief Minister"
+              />
+              <span>
+                Chief Minister
+              </span>
+            </div>
+
+            <div>
+              <img
+                src={deputy}
+                alt="Deputy CM"
+              />
+              <span>
+                Deputy CM
+              </span>
+            </div>
+
+            <div>
+              <img
+                src={minister}
+                alt="IT Minister"
+              />
+              <span>
+                IT Minister
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Chat Section */}
+        <section className="chat">
+          {messages.length === 0 && (
+            <div className="hero">
+              <h2>{CONTENT.title}</h2>
+
+              <p>
+                {CONTENT.description}
+              </p>
+            </div>
+          )}
+
+          <ChatWindow
+            messages={messages}
+            loading={loading}
+          />
+
+          <ChatInput
+            loading={loading}
+            onSend={handleSend}
+            placeholder={CONTENT.placeholder}
+          />
+        </section>
       </div>
     </div>
-  )
+  );
 }
