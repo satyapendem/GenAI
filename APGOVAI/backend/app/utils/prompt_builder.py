@@ -53,6 +53,20 @@ Information not found in retrieved documents.
 14. Do not add generic government information.
 15. Do not add disclaimers.
 
+16. Use CONVERSATION HISTORY for follow-up questions.
+17. Resolve references such as:
+    - "it"
+    - "that"
+    - "those"
+    - "this budget"
+    - "the above GO"
+    using conversation history.
+
+18. Even when conversation history exists:
+    - retrieved documents remain the source of truth.
+    - never invent facts from history.
+    - history provides context only.
+
 Financial Formatting Rules:
 
 - Display all currency values in English.
@@ -62,13 +76,14 @@ Financial Formatting Rules:
   - "₹" may be preserved.
 - Preserve the numeric value exactly.
 - Never output Hindi, Telugu, or any non-English currency labels.
-- Example:
 
-  Source:
-  Total Revenue Receipts: 251,163 crore (रू. कोटि)
+Example:
 
-  Output:
-  Total Revenue Receipts: ₹251,163 Crore (INR 251,163 Crore)
+Source:
+Total Revenue Receipts: 251,163 crore (रू. कोटि)
+
+Output:
+Total Revenue Receipts: ₹251,163 Crore (INR 251,163 Crore)
 
 OUTPUT FORMAT:
 
@@ -156,23 +171,18 @@ def _format_context(
         meta_parts = []
 
         if document_type:
-
             meta_parts.append(f"type={document_type}")
 
         if department:
-
             meta_parts.append(f"department={department}")
 
         if go_number:
-
             meta_parts.append(f"go={go_number}")
 
         if year:
-
             meta_parts.append(f"year={year}")
 
         if page:
-
             meta_parts.append(f"page={page}")
 
         meta_string = " | ".join(meta_parts)
@@ -232,6 +242,35 @@ def _format_sources(
 
 
 # ─────────────────────────────────────────────────────────────
+# Conversation Formatter
+# ─────────────────────────────────────────────────────────────
+
+
+def _format_history(
+    history,
+) -> str:
+    """
+    Format conversation history.
+    """
+
+    if not history:
+
+        return "No previous conversation."
+
+    lines = []
+
+    for msg in history:
+
+        role = "User" if msg.role == "user" else "Assistant"
+
+        content = msg.content.replace("\n", " ").strip()
+
+        lines.append(f"{role}: {content}")
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────
 # Public Prompt Builder
 # ─────────────────────────────────────────────────────────────
 
@@ -239,17 +278,26 @@ def _format_sources(
 def build_prompt(
     query: str,
     docs: list[dict],
+    history=None,
 ) -> str:
     """
-    Build grounded prompt.
+    Build grounded prompt with memory.
     """
 
     context = _format_context(docs)
 
     sources = _format_sources(docs)
 
+    history_text = _format_history(history)
+
     prompt = f"""
 {_RULES_ENGLISH}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONVERSATION HISTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{history_text}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONTEXT DOCUMENTS
@@ -283,6 +331,7 @@ ANSWER REQUIREMENTS
 - Preserve dates
 - Include Sources section
 - Answer ONLY from context
+- Use conversation history for follow-up questions
 
 ANSWER:
 """

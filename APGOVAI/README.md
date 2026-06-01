@@ -1,458 +1,665 @@
-# APGovAI — Multilingual Government RAG Assistant
+# APGovAI — Technical Architecture & System Design
 
-## Overview
-
-APGovAI is a multilingual Retrieval-Augmented Generation (RAG) platform designed for Andhra Pradesh Government documents.
-
-The system supports:
-
-* Telugu + English queries
-* Government Orders (GO)
-* Budget documents
-* Circulars
-* Policies
-* Reports
-* Scanned PDFs
-* Citation-based responses
-
-The architecture is fully custom-built without LangChain to provide:
-
-* Better performance
-* Full pipeline control
-* Easier debugging
-* Deep learning opportunity
-* Production-style architecture
+**Version:** 1.0
+**Status:** Production Foundation Complete
+**Stack:** FastAPI + PostgreSQL + Qdrant + Ollama + React
 
 ---
 
-# Features
+# Overview
 
-## Multilingual Support
+APGovAI is a Retrieval-Augmented Generation (RAG) platform designed for Andhra Pradesh Government documents.
+
+The system allows authenticated users to query:
+
+* Government Orders (GOs)
+* Budgets
+* Reports
+* Datasets
+* Policy Documents
+* Circulars
+* Future Legislative Documents
+
+using natural language.
+
+The application supports:
+
+* Multi-user authentication
+* Conversation history
+* Context-aware chat
+* Vector search
+* Response caching
+* Admin user management
+* Document management
+* Incremental ingestion
+
+---
+
+# High Level Architecture
+
+```text
+┌───────────────────────┐
+│ React Frontend        │
+└──────────┬────────────┘
+           │
+           ▼
+┌───────────────────────┐
+│ FastAPI Backend       │
+└──────────┬────────────┘
+           │
+           ├──────────────────────┐
+           │                      │
+           ▼                      ▼
+
+┌─────────────────┐      ┌─────────────────┐
+│ PostgreSQL      │      │ Qdrant          │
+│ Metadata Store  │      │ Vector Store    │
+└─────────────────┘      └─────────────────┘
+           ▲                      ▲
+           │                      │
+           └──────────┬───────────┘
+                      │
+                      ▼
+
+             ┌────────────────┐
+             │ Ollama         │
+             │ Qwen2.5 7B     │
+             └────────────────┘
+```
+
+---
+
+# Frontend Architecture
+
+```text
+src/
+
+├── components
+│   ├── ChatInput.jsx
+│   ├── ChatWindow.jsx
+│   ├── MessageBubble.jsx
+│   └── Sidebar.jsx
+│
+├── pages
+│   ├── Login.jsx
+│   ├── Users.jsx
+│   └── Documents.jsx
+│
+├── api
+│   ├── auth.js
+│   ├── conversations.js
+│   ├── documents.js
+│   └── users.js
+│
+├── assets
+│
+├── styles.css
+│
+└── App.jsx
+```
+
+---
+
+# Backend Architecture
+
+```text
+app/
+
+├── api
+│   ├── auth.py
+│   ├── admin.py
+│   ├── users.py
+│   ├── chat.py
+│   ├── conversations.py
+│   └── documents.py
+│
+├── database
+│   ├── models.py
+│   ├── schemas.py
+│   ├── session.py
+│   ├── bootstrap.py
+│   └── init_db.py
+│
+├── services
+│   ├── auth_service.py
+│   ├── security.py
+│   ├── conversation_service.py
+│   ├── cache_service.py
+│   └── document_service.py
+│
+├── retrieval
+│   └── retriever.py
+│
+├── vector
+│   └── qdrant_client.py
+│
+├── embedding
+│   └── embedder.py
+│
+├── llm
+│   └── ollama_client.py
+│
+├── ingestion
+│   ├── ingest.py
+│   ├── converter.py
+│   ├── chunker.py
+│   ├── manifest.py
+│   └── run_ingest.py
+│
+└── main.py
+```
+
+---
+
+# Authentication Flow
+
+Implemented using JWT.
+
+## Login
+
+```text
+User
+ ↓
+POST /auth/login
+ ↓
+Validate Username/Password
+ ↓
+Generate JWT
+ ↓
+Return Token
+```
+
+Frontend stores:
+
+```javascript
+localStorage.setItem(
+  "token",
+  token
+)
+```
+
+Every API call sends:
+
+```http
+Authorization: Bearer <token>
+```
+
+---
+
+# User Roles
+
+## Admin
+
+Can:
+
+* Create Users
+* View Users
+* Upload Documents
+* Delete Documents
+* Re-ingest Documents
+* View Chats
+
+## User
+
+Can:
+
+* Login
+* Create Chats
+* Ask Questions
+* View Own History
+
+Cannot:
+
+* Manage Users
+* Manage Documents
+
+---
+
+# PostgreSQL Architecture
+
+Database acts as system-of-record.
+
+---
+
+## Users
+
+```text
+users
+```
+
+Stores:
+
+```text
+id
+username
+password_hash
+role
+is_active
+created_at
+```
+
+---
+
+## Conversations
+
+```text
+conversations
+```
+
+Stores:
+
+```text
+id
+user_id
+title
+created_at
+```
+
+---
+
+## Messages
+
+```text
+messages
+```
+
+Stores:
+
+```text
+id
+conversation_id
+role
+content
+created_at
+```
+
+Roles:
+
+```text
+user
+assistant
+```
+
+---
+
+## Documents
+
+```text
+documents
+```
+
+Stores:
+
+```text
+id
+filename
+file_hash
+collection
+file_path
+status
+uploaded_by
+created_at
+```
+
+---
+
+## Response Cache
+
+```text
+response_cache
+```
+
+Stores:
+
+```text
+question_hash
+question
+answer
+created_at
+```
+
+---
+
+## Audit Logs
+
+```text
+audit_logs
+```
+
+Stores:
+
+```text
+user_id
+action
+created_at
+```
+
+---
+
+# Conversation Memory
+
+Implemented.
+
+Each conversation has:
+
+```text
+Conversation
+ ├── User Message
+ ├── Assistant Response
+ ├── User Message
+ ├── Assistant Response
+```
+
+When user asks:
+
+```text
+"What was the budget increase?"
+```
+
+System loads:
+
+```python
+history = get_conversation_context(
+    db,
+    conversation_id
+)
+```
+
+and injects history into prompt.
+
+Result:
+
+```text
+Conversation-aware responses
+```
+
+similar to ChatGPT.
+
+---
+
+# Retrieval Pipeline
+
+Current Retrieval:
+
+```text
+Question
+ ↓
+Embed Query
+ ↓
+Qdrant Search
+ ↓
+Top K Chunks
+ ↓
+Prompt Builder
+ ↓
+LLM
+```
+
+---
+
+# Embeddings
+
+Model:
+
+```text
+intfloat/multilingual-e5-small
+```
+
+Query:
+
+```text
+query: <question>
+```
+
+Document:
+
+```text
+passage: <chunk>
+```
+
+Normalization:
+
+```python
+normalize_embeddings=True
+```
 
 Supports:
 
 * Telugu
 * English
-* Mixed Telugu + English
+* Multilingual Retrieval
 
-Example:
+---
+
+# Chunking Strategy
+
+Custom semantic chunker.
+
+Features:
+
+### Sentence Aware
+
+Avoids:
 
 ```text
-ఆరోగ్య శాఖ బడ్జెట్ వివరాలు చెప్పు
+mid sentence splits
 ```
+
+### Telugu Safe
+
+Avoids:
 
 ```text
-Show health department budget
+Unicode grapheme corruption
 ```
 
----
-
-# Supported File Types
-
-| Format       | Supported |
-| ------------ | --------- |
-| PDF          | Yes       |
-| Scanned PDF  | Yes       |
-| DOCX         | Yes       |
-| DOC          | Yes       |
-| XLSX         | Yes       |
-| XLS          | Yes       |
-| CSV          | Yes       |
-| PPTX         | Yes       |
-| TXT          | Yes       |
-| Markdown     | Yes       |
-| HTML         | Yes       |
-| Images (OCR) | Yes       |
-
----
-
-# Architecture
+### Overlapping Chunks
 
 ```text
-User Query
-    ↓
-Language Detection
-    ↓
-Embedding Generation
-    ↓
-Qdrant Retrieval
-    ↓
-Prompt Builder
-    ↓
-Qwen2.5 Response Generation
-    ↓
-Streaming Response
+chunk_size = 1500
+overlap = 200
 ```
 
 ---
 
-# Tech Stack
+# Qdrant Architecture
 
-## Backend
-
-| Component   | Technology            |
-| ----------- | --------------------- |
-| API         | FastAPI               |
-| LLM         | Qwen2.5               |
-| Embeddings  | multilingual-e5-small |
-| Vector DB   | Qdrant                |
-| OCR         | Tesseract             |
-| PDF Parsing | MarkItDown            |
-| Streaming   | SSE                   |
-
----
-
-## Frontend
-
-| Component          | Technology     |
-| ------------------ | -------------- |
-| UI                 | React          |
-| Styling            | Tailwind       |
-| Streaming          | Fetch Stream   |
-| Markdown Rendering | react-markdown |
-
----
-
-# Final Model Stack
-
-| Purpose    | Model                          |
-| ---------- | ------------------------------ |
-| LLM        | qwen2.5:7b-instruct-q4_K_M     |
-| Embeddings | intfloat/multilingual-e5-small |
-
----
-
-# Folder Structure
+Collections:
 
 ```text
-APGOVAI/
-
-backend/
-│
-├── app/
-│   │
-│   ├── api/
-│   │   └── chat.py
-│   │
-│   ├── core/
-│   │   └── config.py
-│   │
-│   ├── embedding/
-│   │   └── embedder.py
-│   │
-│   ├── ingestion/
-│   │   ├── chunker.py
-│   │   ├── converter.py
-│   │   ├── ingest.py
-│   │   └── registry.py
-│   │
-│   ├── llm/
-│   │   └── ollama_client.py
-│   │
-│   ├── retrieval/
-│   │   └── retriever.py
-│   │
-│   ├── utils/
-│   │   ├── language.py
-│   │   └── prompt_builder.py
-│   │
-│   ├── vector/
-│   │   └── qdrant_client.py
-│   │
-│   └── main.py
-│
-├── datasets/
-│
-├── processed/
-│
-├── requirements.txt
-│
-└── .env
-
-frontend/
+gos
+budgets
+reports
+datasets
 ```
 
----
-
-# Hardware Recommendation
-
-## Minimum
-
-| Resource | Requirement |
-| -------- | ----------- |
-| RAM      | 16 GB       |
-| GPU VRAM | 4 GB        |
-| Storage  | 30 GB       |
-
----
-
-# Why Lightweight Models Were Chosen
-
-Initial models:
+Each collection:
 
 ```text
-Qwen3-14B
-bge-m3
-reranker
+text
+embedding
+metadata
 ```
 
-caused:
+Metadata:
 
-* CUDA OOM
-* Slow generation
-* Heavy memory usage
+```json
+{
+  "source": "...",
+  "department": "...",
+  "year": "...",
+  "document_type": "...",
+  "chunk_index": 1
+}
+```
 
-Final optimized stack:
+---
+
+# Duplicate Prevention
+
+Implemented at two layers.
+
+---
+
+## Ingestion Layer
+
+Manifest
 
 ```text
-Qwen2.5 7B Q4
-+
-multilingual-e5-small
+processed/manifest.json
 ```
 
-provides:
-
-* Faster inference
-* Stable GPU usage
-* Better streaming
-* Good Telugu support
-
----
-
-# Ubuntu Dependencies
-
-Install system packages first.
-
-```bash
-sudo apt update
-
-sudo apt install -y \
-tesseract-ocr \
-tesseract-ocr-tel \
-poppler-utils \
-libmagic1 \
-antiword \
-unrtf \
-pandoc \
-docker.io
-```
-
----
-
-# Install Ollama
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-Start Ollama:
-
-```bash
-ollama serve
-```
-
----
-
-# Pull LLM
-
-```bash
-ollama pull qwen2.5:7b-instruct-q4_K_M
-```
-
----
-
-# Clone Project
-
-```bash
-git clone <your-repo>
-
-cd APGOVAI
-```
-
----
-
-# Backend Setup
-
-```bash
-cd backend
-
-python3 -m venv venv
-
-source venv/bin/activate
-```
-
----
-
-# Install Python Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# requirements.txt
-
-```txt
-fastapi
-uvicorn
-python-dotenv
-python-multipart
-
-torch
-transformers
-sentence-transformers
-accelerate
-numpy
-
-qdrant-client
-
-markitdown[all]
-
-pymupdf
-pdfplumber
-pypdf
-
-python-docx
-docx2txt
-
-openpyxl
-xlrd
-pandas
-
-python-pptx
-
-beautifulsoup4
-lxml
-
-markdown
-
-pytesseract
-pdf2image
-pillow
-
-langdetect
-
-requests
-httpx
-
-tqdm
-orjson
-
-black
-ruff
-```
-
----
-
-# Environment Variables
-
-Create:
+Stores:
 
 ```text
-backend/.env
+file hash
 ```
 
-Add:
-
-```env
-OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
-
-EMBED_MODEL=intfloat/multilingual-e5-small
-
-DATA_ROOT=./datasets
-
-PROCESSED_ROOT=./processed
-
-QDRANT_HOST=localhost
-
-QDRANT_PORT=6333
-
-TOP_K=8
-
-CHUNK_SIZE=800
-
-CHUNK_OVERLAP=150
-```
+Unchanged files skipped.
 
 ---
 
-# Start Qdrant
+## Database Layer
 
-```bash
-docker run \
--d \
---name apgovai-qdrant \
--p 6333:6333 \
-qdrant/qdrant
-```
-
----
-
-# Dataset Structure
+Documents table
 
 ```text
-datasets/
-
-├── gos/
-├── budgets/
-├── reports/
-└── datasets/
+file_hash UNIQUE
 ```
 
-Place government documents inside these folders.
-
----
-
-# Start Application
-
-From project root:
-
-```bash
-chmod +x run.sh
-
-./run.sh
-```
-
----
-
-# Ingestion Pipeline
+Same file uploaded:
 
 ```text
-Document
-    ↓
-MarkItDown
-    ↓
-OCR Fallback
-    ↓
-Markdown
-    ↓
-Chunking
-    ↓
-Embeddings
-    ↓
-Qdrant Storage
+Rejected
 ```
 
 ---
 
-# OCR Support
+# Document Management
 
-Scanned PDFs are automatically processed using:
+Admin can:
 
 ```text
-Tesseract OCR
+Upload
+Delete
+List
+Re-Ingest
 ```
 
-Telugu OCR:
+Upload Flow:
 
 ```text
-eng+tel
+Upload File
+ ↓
+Calculate Hash
+ ↓
+Check PostgreSQL
+ ↓
+Store File
+ ↓
+Chunk
+ ↓
+Embed
+ ↓
+Qdrant
+ ↓
+Metadata Save
 ```
 
 ---
 
-# API Endpoints
+# Response Cache
+
+Implemented.
+
+Flow:
+
+```text
+Question
+ ↓
+Hash Question
+ ↓
+Cache Lookup
+```
+
+If hit:
+
+```text
+Return Cached Response
+```
+
+If miss:
+
+```text
+Generate Response
+ ↓
+Store Cache
+```
+
+Benefits:
+
+```text
+10x Faster Repeated Queries
+Reduced LLM Load
+```
+
+---
+
+# Ollama Layer
+
+Current Model:
+
+```text
+qwen2.5:7b-instruct-q4_K_M
+```
+
+Generation:
+
+```python
+temperature = 0.1
+repeat_penalty = 1.1
+```
+
+Streaming:
+
+```text
+Token Streaming
+```
+
+Frontend receives chunks live.
+
+---
+
+# Current API Endpoints
+
+## Authentication
+
+```http
+POST /auth/login
+```
+
+---
+
+## User Management
+
+```http
+POST /admin/users
+GET /users/me
+GET /users
+```
+
+---
+
+## Conversations
+
+```http
+POST /conversations
+GET /conversations
+GET /conversations/{id}/messages
+DELETE /conversations/{id}
+```
+
+---
 
 ## Chat
 
@@ -460,186 +667,165 @@ eng+tel
 POST /chat
 ```
 
-Request:
+Streaming response.
 
-```json
-{
-  "question": "ఆరోగ్య శాఖ బడ్జెట్"
-}
+---
+
+## Documents
+
+```http
+POST /documents/upload
+GET /documents
+DELETE /documents/{id}
 ```
 
 ---
 
-# Retrieval Flow
+# Docker Architecture
+
+```yaml
+services:
+
+  postgres
+
+  qdrant
+
+  backend
+
+  frontend
+```
+
+---
+
+# Environment Variables
+
+```env
+OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+
+OLLAMA_HOST=http://localhost:11434
+
+EMBED_MODEL=intfloat/multilingual-e5-small
+
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+
+POSTGRES_DB=apgovai
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+
+JWT_SECRET=<secret>
+
+TOP_K=8
+RERANK_TOP=3
+
+CHUNK_SIZE=1500
+CHUNK_OVERLAP=200
+```
+
+---
+
+# Current Production Readiness
+
+### Completed
+
+✅ Authentication
+
+✅ Authorization
+
+✅ User Management
+
+✅ Conversation Memory
+
+✅ PostgreSQL Persistence
+
+✅ Document Management
+
+✅ Duplicate Prevention
+
+✅ Qdrant Vector Search
+
+✅ Response Cache
+
+✅ Docker Deployment
+
+✅ Incremental Ingestion
+
+✅ Streaming Responses
+
+---
+
+# Planned Next Phase
+
+## Phase 2
+
+### Hybrid Search
 
 ```text
-User Query
-    ↓
-Language Detection
-    ↓
-Embedding
-    ↓
-Qdrant Similarity Search
-    ↓
-Top Documents
-    ↓
-Prompt Building
-    ↓
-Qwen Generation
+BM25
++
+Vector Search
++
+Reranker
 ```
 
 ---
 
-# Important Engineering Decisions
-
-## Why Removed LangChain
-
-LangChain caused:
-
-* Hidden abstractions
-* Slow debugging
-* Less control
-* Hard optimization
-
-Custom implementation gives:
-
-* Better performance
-* Full visibility
-* Easier learning
-* Production-level understanding
-
----
-
-# Why Qdrant
-
-Advantages:
-
-* Faster retrieval
-* Better filtering
-* Native vector database
-* Scalable
-* Production-ready
-
----
-
-# Why MarkItDown
-
-Government documents contain:
-
-* Tables
-* Mixed formatting
-* Broken PDFs
-* OCR content
-
-MarkItDown preserves:
-
-* Structure
-* Headings
-* Tables
-* Markdown formatting
-
-better than basic PDF parsers.
-
----
-
-# Common Problems
-
----
-
-## Vector Dimension Error
-
-Error:
+### Source Citations
 
 ```text
-expected dim: 1024 got 384
+Answer
+ ↓
+Sources
+   GO_42.pdf
+   Budget_2024.xlsx
 ```
 
-Cause:
-
-Embedding model changed.
-
-Fix:
-
-Delete Qdrant collection and re-ingest.
-
 ---
 
-## 0 Chunks Generated
-
-Cause:
-
-Scanned PDF with no text.
-
-Fix:
-
-OCR fallback automatically handles this.
-
----
-
-## CUDA Out Of Memory
-
-Cause:
-
-Large models on small GPU.
-
-Fix:
-
-Use:
+### Analytics Dashboard
 
 ```text
-qwen2.5:7b-instruct-q4_K_M
+Total Users
+Total Documents
+Total Chats
+Cache Hit Rate
 ```
 
-instead of larger models.
-
 ---
 
-# Future Improvements
-
-## Planned
-
-* Hybrid Search
-* BM25 + Vector Search
-* Metadata Filtering
-* Department Filtering
-* Citation Highlighting
-* Telugu OCR Improvements
-* Streaming Tokens
-* Conversation Memory
-* User Authentication
-* Multi-document summarization
-
----
-
-# Production Roadmap
-
-## Current
+### Feedback System
 
 ```text
-Single-node local RAG
-```
+👍 Helpful
 
-## Future
-
-```text
-vLLM
-OpenSearch
-Distributed Qdrant
-GPU batching
-Async ingestion
+👎 Not Helpful
 ```
 
 ---
 
-# Final Notes
+### Audit Dashboard
 
-This project is now:
+```text
+User Login
+Document Upload
+Document Delete
+Admin Actions
+```
 
-* Fully custom
-* Multilingual
-* OCR-enabled
-* Citation-based
-* GPU-optimized
-* Government-document focused
+---
 
-and designed specifically for Andhra Pradesh Government document intelligence.
+# Vision
+
+APGovAI is evolving into a Government Knowledge Platform capable of:
+
+* Enterprise RAG
+* Multilingual Retrieval
+* Department Knowledge Management
+* Policy Search
+* Budget Intelligence
+* Government Decision Support
+
+with complete ownership of data and models running entirely on local infrastructure.

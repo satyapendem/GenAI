@@ -1,18 +1,26 @@
+const API =
+  "http://localhost:8000";
+
 export async function sendMessage(
+  conversationId,
   question,
   onChunk,
 ) {
 
   const response =
     await fetch(
-
-      "http://localhost:8000/chat",
-
+      `${API}/chat`,
       {
-
         method: "POST",
 
         headers: {
+
+          Authorization:
+            `Bearer ${
+              localStorage.getItem(
+                "token"
+              )
+            }`,
 
           "Content-Type":
             "application/json",
@@ -21,72 +29,52 @@ export async function sendMessage(
 
         body: JSON.stringify({
 
+          conversation_id:
+            conversationId,
+
           question,
 
         }),
 
-      },
-
-    )
-
-  if (!response.ok) {
-
-    throw new Error(
-      "API Error"
-    )
-
-  }
+      }
+    );
 
   if (!response.body) {
 
     throw new Error(
-      "No response body"
-    )
+      "No response"
+    );
 
   }
 
   const reader =
-    response.body.getReader()
+    response.body.getReader();
 
   const decoder =
-    new TextDecoder()
+    new TextDecoder();
 
   while (true) {
 
     const {
-
       done,
-
       value,
-
-    } = await reader.read()
+    } = await reader.read();
 
     if (done) {
 
-      break
+      break;
 
     }
 
     const chunk =
       decoder.decode(
-
         value,
-
         {
-
           stream: true,
-
         }
+      );
 
-      )
-
-    if (chunk) {
-
-      onChunk(
-        chunk
-      )
-
-    }
+    onChunk(chunk);
 
   }
 

@@ -2,8 +2,20 @@ import { useEffect, useState } from "react";
 
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
+import Login from "./pages/Login";
+import Users from "./pages/Users";
+import Documents
+  from "./pages/Documents";
 
 import { sendMessage } from "./api";
+
+import {
+  createConversation,
+  getConversations,
+  getMessages,
+} from "./conversations";
+
+import { getCurrentUser } from "./user";
 
 import logo from "./assets/ap_logo.png";
 import cm from "./assets/cm.png";
@@ -11,167 +23,363 @@ import deputy from "./assets/deputy_cm.png";
 import minister from "./assets/it_minister.png";
 
 import "./styles.css";
+import Sidebar from "./components/Sidebar";
 
 const CONTENT = {
-  subtitle: "AI Assistant for Andhra Pradesh Government",
-  title: "How can I help you today?",
+  subtitle:
+    "AI Assistant for Andhra Pradesh Government",
+
+  title:
+    "How can I help you today?",
+
   description:
     "Ask APGovAI about Government Orders, Budgets, Policies, Circulars, Reports and Acts.",
-  placeholder: "Ask APGovAI...",
+
+  placeholder:
+    "Ask APGovAI...",
 };
 
 export default function App() {
-  const [messages, setMessages] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+
+  const [token, setToken] =
+    useState(
+      localStorage.getItem(
+        "token"
+      )
+    );
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [messages, setMessages] =
+    useState([]);
+
+  const [conversations,
+    setConversations] =
+    useState([]);
+
+  const [
+    selectedConversation,
+    setSelectedConversation,
+  ] = useState(null);
+
+  const [user, setUser] =
+    useState(null);
+
+  const [page, setPage] = useState("chat");
 
   useEffect(() => {
-    const storedHistory = localStorage.getItem("apgovai_history");
 
-    if (storedHistory) {
-      setHistory(JSON.parse(storedHistory));
-    }
-  }, []);
+    if (!token) {
 
-  async function handleSend(question) {
-    if (!question.trim()) {
       return;
+
+    }
+
+    loadConversations();
+
+    loadUser();
+
+  }, [token]);
+
+  async function loadUser() {
+
+    const data =
+      await getCurrentUser();
+
+    setUser(data);
+
+  }
+
+  async function loadConversations() {
+
+    const chats =
+      await getConversations();
+
+    setConversations(
+      chats
+    );
+
+    if (
+      chats.length > 0
+    ) {
+
+      selectConversation(
+        chats[0].id
+      );
+
+    }
+
+  }
+
+  async function createNewChat() {
+
+    const chat =
+      await createConversation();
+
+    setConversations(
+      prev => [
+        chat,
+        ...prev,
+      ]
+    );
+
+    setSelectedConversation(
+      chat.id
+    );
+
+    setMessages([]);
+
+  }
+
+  async function selectConversation(
+    conversationId
+  ) {
+
+    const msgs =
+      await getMessages(
+        conversationId
+      );
+
+    setSelectedConversation(
+      conversationId
+    );
+
+    setMessages(
+      msgs.map(
+        msg =>
+
+          msg.role === "user"
+
+            ? {
+              role: "user",
+              text:
+                msg.content,
+            }
+
+            : {
+              role:
+                "assistant",
+              answer:
+                msg.content,
+            }
+      )
+    );
+
+  }
+
+  async function handleSend(
+    question
+  ) {
+
+    if (
+      !selectedConversation
+    ) {
+
+      return;
+
     }
 
     setLoading(true);
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        text: question,
-      },
-      {
-        role: "assistant",
-        answer: "",
-      },
-    ]);
+    setMessages(
+      prev => [
+
+        ...prev,
+
+        {
+          role: "user",
+          text: question,
+        },
+
+        {
+          role:
+            "assistant",
+          answer: "",
+        },
+
+      ]
+    );
 
     try {
-      await sendMessage(question, (chunk) => {
-        setMessages((prev) => {
-          const updated = [...prev];
 
-          const lastMessage =
-            updated[updated.length - 1];
+      await sendMessage(
 
-          updated[updated.length - 1] = {
-            role: "assistant",
-            answer:
-              (lastMessage?.answer || "") +
-              chunk,
-          };
+        selectedConversation,
 
-          return updated;
-        });
-      });
+        question,
 
-      const updatedHistory = [
-        {
-          question,
-          time: new Date().toLocaleString(),
-        },
-        ...history,
-      ];
+        chunk => {
 
-      setHistory(updatedHistory);
+          setMessages(
+            prev => {
 
-      localStorage.setItem(
-        "apgovai_history",
-        JSON.stringify(updatedHistory)
+              const updated =
+                [...prev];
+
+              const last =
+                updated[
+                updated.length - 1
+                ];
+
+              updated[
+                updated.length - 1
+              ] = {
+
+                role:
+                  "assistant",
+
+                answer:
+                  (
+                    last?.answer
+                    || ""
+                  ) + chunk,
+
+              };
+
+              return updated;
+
+            }
+          );
+
+        }
+
       );
-    } catch (error) {
-      console.error("Chat Error:", error);
+
     } finally {
+
       setLoading(false);
+
     }
+
+  }
+
+  if (!token) {
+
+    return (
+
+      <Login
+        onLogin={
+          setToken
+        }
+      />
+
+    );
+
+  }
+
+  if (page === "users") {
+    return (
+      <Users setPage={setPage} />
+    );
+  }
+
+  if (page === "documents") {
+    return (
+      <Documents setPage={setPage} />
+    );
   }
 
   return (
+
     <div className="layout">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <h3>Chats</h3>
 
-        {history.map((chat, index) => (
-          <div
-            key={index}
-            className="history"
-          >
-            {chat.question}
-          </div>
-        ))}
-      </aside>
+      <Sidebar
+        currentUser={user}
+        conversations={conversations}
+        selectedId={selectedConversation}
+        onSelect={selectConversation}
+        onNewChat={createNewChat}
+        setPage={setPage}
+        page={page}
+      />
 
-      {/* Main Content */}
       <div className="main">
-        {/* Header */}
+
         <header className="header">
+
           <div className="brand">
-            <img
-              src={logo}
-              alt="APGovAI"
-              className="logo"
-            />
 
             <div>
+
               <h1>APGovAI</h1>
 
               <p className="subtitle">
-                {CONTENT.subtitle}
+                AI Assistant for Andhra Pradesh Government
               </p>
+
             </div>
+
           </div>
 
           <div className="leaders">
+
             <div>
+
               <img
                 src={cm}
-                alt="Chief Minister"
+                alt=""
               />
+
               <span>
                 Chief Minister
               </span>
+
             </div>
 
             <div>
+
               <img
                 src={deputy}
-                alt="Deputy CM"
+                alt=""
               />
+
               <span>
                 Deputy CM
               </span>
+
             </div>
 
             <div>
+
               <img
                 src={minister}
-                alt="IT Minister"
+                alt=""
               />
+
               <span>
                 IT Minister
               </span>
+
             </div>
+
           </div>
+
         </header>
 
-        {/* Chat Section */}
         <section className="chat">
-          {messages.length === 0 && (
-            <div className="hero">
-              <h2>{CONTENT.title}</h2>
 
-              <p>
-                {CONTENT.description}
-              </p>
-            </div>
-          )}
+          {
+
+            messages.length === 0 && (
+
+              <div className="hero">
+
+                <h2>
+                  {CONTENT.title}
+                </h2>
+
+                <p>
+                  {
+                    CONTENT.description
+                  }
+                </p>
+
+              </div>
+
+            )
+
+          }
 
           <ChatWindow
             messages={messages}
@@ -181,10 +389,17 @@ export default function App() {
           <ChatInput
             loading={loading}
             onSend={handleSend}
-            placeholder={CONTENT.placeholder}
+            placeholder={
+              CONTENT.placeholder
+            }
           />
+
         </section>
+
       </div>
+
     </div>
+
   );
+
 }

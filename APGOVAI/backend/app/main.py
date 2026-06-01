@@ -20,6 +20,18 @@ from app.api.admin import (
     router as admin_router,
 )
 
+from app.api.conversations import (
+    router as conversations_router,
+)
+
+from app.api.users import (
+    router as user_router,
+)
+
+from app.api.documents import (
+    router as documents_router,
+)
+
 from app.database.bootstrap import (
     create_default_admin,
 )
@@ -50,6 +62,12 @@ app.include_router(admin_router)
 app.include_router(
     chat_router,
 )
+
+app.include_router(conversations_router)
+
+app.include_router(user_router)
+
+app.include_router(documents_router)
 
 
 @app.get("/")

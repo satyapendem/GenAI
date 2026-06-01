@@ -64,3 +64,23 @@ def create_user(
         "message": "User created",
         "id": str(user.id),
     }
+
+
+@router.get("/users")
+def list_users(
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
+):
+
+    users = db.query(User).order_by(User.created_at.desc()).all()
+
+    return [
+        {
+            "id": str(u.id),
+            "username": u.username,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at,
+        }
+        for u in users
+    ]
