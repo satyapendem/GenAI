@@ -1,89 +1,38 @@
 """
 Prompt builder for APGovAI.
 
-Rules enforced in every prompt:
-- Answer ONLY from retrieved context.
-- Never use model knowledge.
-- Never hallucinate figures, dates, GO numbers.
-- Return exact INR values, dates, GO numbers from source.
-- If evidence is absent → say so explicitly.
-- Always include source citations.
+The prompt keeps answers grounded in retrieved context and supports English and
+Telugu response instructions while preserving official values exactly.
 """
-
-# ─────────────────────────────────────────────────────────────
-# Instructions
-# ─────────────────────────────────────────────────────────────
 
 _RULES_ENGLISH = """
 You are APGovAI, an official Andhra Pradesh Government document assistant.
 
-STRICT RULES — you must follow all of them without exception:
+STRICT RULES - follow all of them:
 
-1. Answer ONLY using the CONTEXT DOCUMENTS provided below.
-2. Never use your own knowledge, training data, or general facts.
-3. Never guess, infer, extrapolate, or estimate.
-4. If the answer is not present in the context, respond exactly:
+1. Answer in English.
+2. Answer ONLY using the CONTEXT DOCUMENTS provided below.
+3. Never use your own knowledge, training data, or general facts.
+4. Never guess, infer, extrapolate, or estimate.
+5. If the answer is not present in the context, respond exactly:
 
 Information not found in retrieved documents.
 
-5. Preserve all values exactly as found:
+6. Preserve all values exactly as found:
    - INR amounts
-   - GO Numbers
+   - GO numbers
    - Dates
    - Percentages
    - Page numbers
    - Department names
-
-6. Never round financial values.
-7. Never convert financial values.
-8. Never modify commas in numbers.
-9. Never create values that are not present.
-
-10. When financial values exist, format them as:
-
-   ₹3,22,359 Crore (INR 3,22,359 Crore)
-
-   ₹15,000 Lakh (INR 15,000 Lakh)
-
-   ₹1,25,00,000 (INR 1,25,00,000)
-
-11. Use Markdown tables whenever the source contains financial tables.
-12. Always cite source document names.
-13. Do not mention websites.
-14. Do not add generic government information.
-15. Do not add disclaimers.
-
-16. Use CONVERSATION HISTORY for follow-up questions.
-17. Resolve references such as:
-    - "it"
-    - "that"
-    - "those"
-    - "this budget"
-    - "the above GO"
-    using conversation history.
-
-18. Even when conversation history exists:
-    - retrieved documents remain the source of truth.
-    - never invent facts from history.
-    - history provides context only.
-
-Financial Formatting Rules:
-
-- Display all currency values in English.
-- Replace:
-  - "रू. कोटि" with "Crore"
-  - "लाख" with "Lakh"
-  - "₹" may be preserved.
-- Preserve the numeric value exactly.
-- Never output Hindi, Telugu, or any non-English currency labels.
-
-Example:
-
-Source:
-Total Revenue Receipts: 251,163 crore (रू. कोटि)
-
-Output:
-Total Revenue Receipts: ₹251,163 Crore (INR 251,163 Crore)
+   - Source file names
+7. Never round, convert, or rewrite financial values.
+8. Use Markdown tables whenever the source contains financial tables.
+9. Always cite source document names.
+10. Do not mention websites.
+11. Do not add generic government information or disclaimers.
+12. Use CONVERSATION HISTORY only to resolve follow-up references.
+13. Retrieved documents remain the source of truth.
 
 OUTPUT FORMAT:
 
@@ -97,20 +46,64 @@ OUTPUT FORMAT:
 - source_file_2.pdf
 """
 
-# ─────────────────────────────────────────────────────────────
-# Context Formatter
-# ─────────────────────────────────────────────────────────────
+
+_RULES_TELUGU = """
+మీరు APGovAI, ఆంధ్రప్రదేశ్ ప్రభుత్వ అధికారిక పత్రాల సహాయకుడు.
+
+కఠిన నియమాలు - ఇవన్నీ తప్పనిసరిగా పాటించండి:
+
+1. సమాధానాన్ని పూర్తిగా తెలుగులో ఇవ్వండి.
+2. క్రింద ఇచ్చిన CONTEXT DOCUMENTS ను మాత్రమే ఉపయోగించండి.
+3. మీ స్వంత జ్ఞానం, ట్రైనింగ్ డేటా, లేదా సాధారణ సమాచారం ఏదీ ఉపయోగించవద్దు.
+4. ఊహించవద్దు, అంచనా వేయవద్దు, విస్తరించవద్దు.
+5. సమాచారం context లో లేకపోతే, ఖచ్చితంగా ఇలా మాత్రమే చెప్పండి:
+
+తిరిగి పొందిన పత్రాల్లో సమాచారం దొరకలేదు.
+
+6. కనబడిన విలువలను యథాతథంగా ఉంచండి:
+   - INR మొత్తాలు
+   - GO నంబర్లు
+   - తేదీలు
+   - శాతాలు
+   - పేజీ నంబర్లు
+   - శాఖల పేర్లు
+   - మూల ఫైల్ పేర్లు
+7. ఆర్థిక విలువలను గుండ్రంగా మార్చవద్దు, మార్పు చేయవద్దు, తిరిగి రాయవద్దు.
+8. మూలంలో ఆర్థిక పట్టికలు ఉన్నప్పుడు Markdown పట్టికలను ఉపయోగించండి.
+9. మూల పత్రాల పేర్లను తప్పనిసరిగా పేర్కొనండి.
+10. వెబ్‌సైట్లను ప్రస్తావించవద్దు.
+11. సాధారణ ప్రభుత్వ సమాచారం లేదా డిస్క్లైమర్లు జోడించవద్దు.
+12. ఫాలో-అప్ సూచనలను అర్థం చేసుకోవడానికి మాత్రమే CONVERSATION HISTORY ను ఉపయోగించండి.
+13. తిరిగి పొందిన పత్రాలే నిజమైన ఆధారం.
+14. అధికారిక పేర్లు, GO నంబర్లు, మొత్తాలు, తేదీలు, మరియు ఫైల్ పేర్లు మూలంలో ఉన్న రూపంలోనే ఉంచండి.
+15. Romanized Telugu ఉపయోగించవద్దు; తెలుగు మాటలను తెలుగు లిపిలోనే రాయండి.
+16. సమాధానం సహజంగా, అధికారిక Telugu శైలిలో ఉండాలి.
+17. "Answer" మరియు "Sources" వంటి English headings బదులుగా Telugu headings వాడండి.
+
+OUTPUT FORMAT:
+
+## సమాధానం
+
+<సమాధానం>
+
+## మూలాలు
+
+- source_file.pdf
+- source_file_2.pdf
+"""
+
+
+_RULES_BY_LANGUAGE = {
+    "english": _RULES_ENGLISH,
+    "telugu": _RULES_TELUGU,
+}
 
 
 def _format_context(
     docs: list[dict],
 ) -> str:
-    """
-    Convert retrieved documents into context.
-    """
-
+    """Convert retrieved documents into model context."""
     if not docs:
-
         return "No documents retrieved."
 
     lines = []
@@ -119,7 +112,6 @@ def _format_context(
         docs,
         start=1,
     ):
-
         metadata = doc.get(
             "metadata",
             {},
@@ -188,42 +180,27 @@ def _format_context(
         meta_string = " | ".join(meta_parts)
 
         lines.append(f"[DOCUMENT {idx}]")
-
         lines.append(f"SOURCE: {source}")
 
         if meta_string:
-
             lines.append(f"METADATA: {meta_string}")
 
         lines.append(f"RELEVANCE_SCORE: {score}")
-
         lines.append("CONTENT:")
-
         lines.append(text)
-
         lines.append("")
 
     return "\n".join(lines)
 
 
-# ─────────────────────────────────────────────────────────────
-# Sources Formatter
-# ─────────────────────────────────────────────────────────────
-
-
 def _format_sources(
     docs: list[dict],
 ) -> str:
-    """
-    Build unique source list.
-    """
-
+    """Build a unique source list."""
     seen = set()
-
     sources = []
 
     for doc in docs:
-
         source = doc.get(
             "metadata",
             {},
@@ -233,105 +210,89 @@ def _format_sources(
         )
 
         if source not in seen:
-
             seen.add(source)
-
             sources.append(f"- {source}")
 
+    if not sources:
+        return "- No sources retrieved"
+
     return "\n".join(sources)
-
-
-# ─────────────────────────────────────────────────────────────
-# Conversation Formatter
-# ─────────────────────────────────────────────────────────────
 
 
 def _format_history(
     history,
 ) -> str:
-    """
-    Format conversation history.
-    """
-
+    """Format conversation history for follow-up resolution."""
     if not history:
-
         return "No previous conversation."
 
     lines = []
 
     for msg in history:
-
         role = "User" if msg.role == "user" else "Assistant"
-
         content = msg.content.replace("\n", " ").strip()
-
         lines.append(f"{role}: {content}")
 
     return "\n".join(lines)
-
-
-# ─────────────────────────────────────────────────────────────
-# Public Prompt Builder
-# ─────────────────────────────────────────────────────────────
 
 
 def build_prompt(
     query: str,
     docs: list[dict],
     history=None,
+    language: str = "english",
 ) -> str:
-    """
-    Build grounded prompt with memory.
-    """
+    """Build a grounded prompt with memory and response language rules."""
+    rules = _RULES_BY_LANGUAGE.get(
+        language,
+        _RULES_ENGLISH,
+    )
 
     context = _format_context(docs)
-
     sources = _format_sources(docs)
-
     history_text = _format_history(history)
 
     prompt = f"""
-{_RULES_ENGLISH}
+{rules}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 CONVERSATION HISTORY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 
 {history_text}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 CONTEXT DOCUMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 
 {context}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 AVAILABLE SOURCES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 
 {sources}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 QUESTION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 
 {query}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 ANSWER REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+==================================
 
 - Return valid Markdown
 - Use headings
-- Use bullet points
+- Use bullet points where useful
 - Use tables for budget data
 - Preserve exact INR values
-- Show INR values in brackets
-- Preserve GO Numbers
+- Preserve GO numbers
 - Preserve dates
-- Include Sources section
+- Include a Sources section
 - Answer ONLY from context
-- Use conversation history for follow-up questions
+- Use conversation history only for follow-up references
 
 ANSWER:
 """

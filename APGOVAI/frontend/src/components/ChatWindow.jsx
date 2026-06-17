@@ -7,6 +7,8 @@ export default function ChatWindow({
 
   loading,
 
+  t,
+
 }) {
 
   return (
@@ -70,9 +72,9 @@ export default function ChatWindow({
 
         loading && (
 
-          <div className='thinking'>
+        <div className='thinking'>
 
-            Generating response...
+            {t.app.thinking}
 
           </div>
 

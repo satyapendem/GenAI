@@ -34,6 +34,9 @@ _FLUSH_CHARS = {
     "\n",  # line break
     "।",  # Telugu danda (U+0964)
     "॥",  # double danda (U+0965)
+    ".",
+    "?",
+    "!",
     "|",  # Markdown table cell separator
 }
 

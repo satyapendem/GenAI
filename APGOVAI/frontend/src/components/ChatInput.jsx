@@ -2,6 +2,10 @@ import {
   useState,
 } from 'react'
 
+import {
+  FiSend,
+} from 'react-icons/fi'
+
 
 export default function ChatInput({
 
@@ -10,6 +14,8 @@ export default function ChatInput({
   loading,
 
   placeholder,
+
+  sendLabel,
 
 }) {
 
@@ -92,9 +98,17 @@ export default function ChatInput({
           loading
         }
 
+        title={
+          sendLabel
+        }
+
       >
 
-        Send
+        <FiSend aria-hidden="true" />
+
+        <span>
+          {sendLabel}
+        </span>
 
       </button>
 

@@ -4,11 +4,28 @@ import {
 } from "react";
 
 import {
+    FiChevronLeft,
+    FiUserPlus,
+} from "react-icons/fi";
+
+import {
     getUsers,
     createUser,
 } from "../admin";
 
-export default function Users({setPage}) {
+import LanguageToggle from "../components/LanguageToggle";
+
+import {
+    getRoleLabel,
+} from "../i18n";
+
+export default function Users({
+    setPage,
+    language,
+    onLanguageChange,
+    languageOptions,
+    t,
+}) {
 
     const [
         users,
@@ -70,19 +87,41 @@ export default function Users({setPage}) {
 
     return (
 
-        <div className="users-page">
+        <div
+            className="users-page"
+            lang={language}
+        >
 
             <div className="page-header">
-                <button
-                    className="back-btn"
-                    onClick={() =>
-                        setPage("chat")
-                    }
-                >
-                    ← Back
-                </button>
+
+                <div className="page-actions">
+
+                    <button
+                        className="back-btn"
+                        onClick={() =>
+                            setPage("chat")
+                        }
+                        type="button"
+                    >
+                        <FiChevronLeft aria-hidden="true" />
+
+                        <span>
+                            {t.common.back}
+                        </span>
+                    </button>
+
+                    <LanguageToggle
+                        language={language}
+                        onChange={onLanguageChange}
+                        label={t.common.language}
+                        compact
+                        options={languageOptions}
+                    />
+
+                </div>
+
                 <h2>
-                    User Management
+                    {t.users.title}
                 </h2>
 
             </div>
@@ -90,11 +129,11 @@ export default function Users({setPage}) {
             <div className="create-user-card">
 
                 <h3>
-                    Create User
+                    {t.users.createUser}
                 </h3>
 
                 <input
-                    placeholder="Username"
+                    placeholder={t.users.username}
                     value={username}
                     onChange={e =>
                         setUsername(
@@ -105,7 +144,7 @@ export default function Users({setPage}) {
 
                 <input
                     type="password"
-                    placeholder="Password"
+                    placeholder={t.users.password}
                     value={password}
                     onChange={e =>
                         setPassword(
@@ -124,19 +163,24 @@ export default function Users({setPage}) {
                 >
 
                     <option value="user">
-                        User
+                        {t.users.user}
                     </option>
 
                     <option value="admin">
-                        Admin
+                        {t.users.admin}
                     </option>
 
                 </select>
 
                 <button
                     onClick={handleCreate}
+                    type="button"
                 >
-                    Create User
+                    <FiUserPlus aria-hidden="true" />
+
+                    <span>
+                        {t.users.createUser}
+                    </span>
                 </button>
 
             </div>
@@ -150,15 +194,15 @@ export default function Users({setPage}) {
                         <tr>
 
                             <th>
-                                Username
+                                {t.users.username}
                             </th>
 
                             <th>
-                                Role
+                                {t.users.role}
                             </th>
 
                             <th>
-                                Status
+                                {t.users.status}
                             </th>
 
                         </tr>
@@ -176,15 +220,15 @@ export default function Users({setPage}) {
                                 </td>
 
                                 <td>
-                                    {user.role}
+                                    {getRoleLabel(user.role, t)}
                                 </td>
 
                                 <td>
 
                                     {
                                         user.is_active
-                                            ? "Active"
-                                            : "Disabled"
+                                            ? t.users.active
+                                            : t.users.disabled
                                     }
 
                                 </td>

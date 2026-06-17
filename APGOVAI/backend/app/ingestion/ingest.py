@@ -18,6 +18,9 @@ from app.embedding.embedder import embed_passage  # ← FIXED: passage prefix
 from app.vector.qdrant_client import store_chunks
 from app.ingestion.manifest import is_changed, mark_ingested
 from app.core.config import COLLECTIONS
+from app.utils.language import (
+    document_language_metadata,
+)
 
 SUPPORTED = {
     ".pdf",
@@ -73,7 +76,6 @@ def extract_file_metadata(file_path: Path, collection_cfg: dict) -> dict:
         "go_number": go_number,
         "year": year,
         "collection": collection_cfg.get("collection", ""),
-        "language": "",  # filled by detect_language if needed
     }
 
 
@@ -116,6 +118,24 @@ def ingest_collection(name: str, cfg: dict):
 
         # Build metadata for this document
         metadata = extract_file_metadata(file, cfg)
+        language_metadata = document_language_metadata(text)
+        metadata.update(
+            {
+                "language": language_metadata["language"],
+                "document_language": language_metadata["language"],
+                "document_telugu_ratio": language_metadata["telugu_ratio"],
+                "document_english_ratio": language_metadata["english_ratio"],
+                "document_telugu_chars": language_metadata["telugu_chars"],
+                "document_english_chars": language_metadata["english_chars"],
+            }
+        )
+
+        print(
+            "[ingest] language="
+            f"{metadata['document_language']} "
+            f"telugu={metadata['document_telugu_ratio']:.2f} "
+            f"english={metadata['document_english_ratio']:.2f}"
+        )
 
         # Chunk with metadata attached
         chunks = chunk_text(text, metadata=metadata)

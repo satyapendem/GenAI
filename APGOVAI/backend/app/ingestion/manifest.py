@@ -12,6 +12,8 @@ from pathlib import Path
 
 MANIFEST_PATH = Path("./processed/manifest.json")
 
+INGESTION_PIPELINE_VERSION = "2026-06-13-language-v2"
+
 
 def load_manifest():
     """
@@ -75,9 +77,16 @@ def is_changed(
 
     current_hash = file_hash(path)
 
-    saved_hash = manifest.get(str(path))
+    saved = manifest.get(str(path))
 
-    return current_hash != saved_hash
+    if isinstance(saved, dict):
+        saved_hash = saved.get("hash")
+        saved_version = saved.get("pipeline_version")
+    else:
+        saved_hash = saved
+        saved_version = None
+
+    return current_hash != saved_hash or saved_version != INGESTION_PIPELINE_VERSION
 
 
 def mark_ingested(
@@ -89,6 +98,9 @@ def mark_ingested(
 
     manifest = load_manifest()
 
-    manifest[str(path)] = file_hash(path)
+    manifest[str(path)] = {
+        "hash": file_hash(path),
+        "pipeline_version": INGESTION_PIPELINE_VERSION,
+    }
 
     save_manifest(manifest)

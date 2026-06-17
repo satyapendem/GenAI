@@ -1,11 +1,25 @@
 const API =
   "http://localhost:8000";
 
+export async function getChatLanguages() {
+  const response = await fetch(`${API}/chat/languages`);
+
+  if (!response.ok) {
+    throw new Error("Failed to load chat languages");
+  }
+
+  return response.json();
+}
+
 export async function sendMessage(
   conversationId,
   question,
+  language,
   onChunk,
 ) {
+
+  const requestedLanguage =
+    language || "auto";
 
   const response =
     await fetch(
@@ -34,10 +48,24 @@ export async function sendMessage(
 
           question,
 
+          language:
+            requestedLanguage,
+
         }),
 
       }
     );
+
+  if (!response.ok) {
+
+    const message =
+      await response.text();
+
+    throw new Error(
+      message || "Chat request failed"
+    );
+
+  }
 
   if (!response.body) {
 

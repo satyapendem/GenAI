@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { login } from "../auth";
+import LanguageToggle from "../components/LanguageToggle";
 
 import logo from "../assets/ap_logo.png";
 import cm from "../assets/cm.png";
@@ -9,6 +10,10 @@ import minister from "../assets/it_minister.png";
 
 export default function Login({
     onLogin,
+    language,
+    onLanguageChange,
+    languageOptions,
+    t,
 }) {
 
     const [username, setUsername] =
@@ -49,7 +54,7 @@ export default function Login({
         } catch {
 
             setError(
-                "Invalid credentials"
+                t.login.invalidCredentials
             );
 
         }
@@ -58,9 +63,13 @@ export default function Login({
 
     return (
 
-        <div className="login-layout">
+        <div
+            className="login-layout"
+            lang={language}
+        >
 
             <div className="login-card">
+
                 <div className="login-top">
 
                     <div className="login-brand">
@@ -76,51 +85,63 @@ export default function Login({
                             <h1>APGovAI</h1>
 
                             <p>
-                                AI Assistant for Andhra Pradesh Government
+                                {t.app.subtitle}
                             </p>
 
                         </div>
 
                     </div>
 
-                    <div className="login-leaders">
+                    <div className="login-side">
 
-                        <div>
+                        <LanguageToggle
+                            language={language}
+                            onChange={onLanguageChange}
+                            label={t.common.language}
+                            compact
+                            options={languageOptions}
+                        />
 
-                            <img
-                                src={cm}
-                                alt=""
-                            />
+                        <div className="login-leaders">
 
-                            <span>
-                                Chief Minister
-                            </span>
+                            <div>
 
-                        </div>
+                                <img
+                                    src={cm}
+                                    alt=""
+                                />
 
-                        <div>
+                                <span>
+                                    {t.leaders.chiefMinister}
+                                </span>
 
-                            <img
-                                src={deputy}
-                                alt=""
-                            />
+                            </div>
 
-                            <span>
-                                Deputy CM
-                            </span>
+                            <div>
 
-                        </div>
+                                <img
+                                    src={deputy}
+                                    alt=""
+                                />
 
-                        <div>
+                                <span>
+                                    {t.leaders.deputyChiefMinister}
+                                </span>
 
-                            <img
-                                src={minister}
-                                alt=""
-                            />
+                            </div>
 
-                            <span>
-                                IT Minister
-                            </span>
+                            <div>
+
+                                <img
+                                    src={minister}
+                                    alt=""
+                                />
+
+                                <span>
+                                    {t.leaders.itMinister}
+                                </span>
+
+                            </div>
 
                         </div>
 
@@ -134,11 +155,11 @@ export default function Login({
                 >
 
                     <h2>
-                        Sign In
+                        {t.login.signIn}
                     </h2>
 
                     <input
-                        placeholder="Username"
+                        placeholder={t.login.username}
                         value={username}
                         onChange={(e) =>
                             setUsername(
@@ -149,7 +170,7 @@ export default function Login({
 
                     <input
                         type="password"
-                        placeholder="Password"
+                        placeholder={t.login.password}
                         value={password}
                         onChange={(e) =>
                             setPassword(
@@ -164,8 +185,8 @@ export default function Login({
                         </p>
                     )}
 
-                    <button>
-                        Login
+                    <button type="submit">
+                        {t.login.login}
                     </button>
 
                 </form>

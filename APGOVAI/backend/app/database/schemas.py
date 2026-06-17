@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -33,3 +35,12 @@ class UserResponse(BaseModel):
     username: str
 
     role: str
+
+
+class ChatRequest(BaseModel):
+
+    question: str
+
+    conversation_id: str
+
+    language: Optional[str] = "auto"

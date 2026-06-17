@@ -13,7 +13,7 @@ FRONTEND="$PROJECT_ROOT/frontend"
 # =====================================
 #
 
-OLLAMA_MODEL="qwen2.5:7b-instruct-q4_K_M"
+OLLAMA_MODEL="qwen2.5:3b"
 
 EMBED_MODEL="intfloat/multilingual-e5-small"
 

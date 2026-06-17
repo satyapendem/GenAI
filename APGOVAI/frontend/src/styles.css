@@ -8,7 +8,7 @@
 
 body {
   margin: 0;
-  font-family: Inter, sans-serif;
+  font-family: Inter, "Noto Sans Telugu", "Noto Sans", system-ui, sans-serif;
   background: #ffffff;
   color: #111827;
 }
@@ -88,6 +88,10 @@ select {
   font-weight: 600;
   margin-bottom: 24px;
   transition: 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .new-chat-btn:hover {
@@ -104,7 +108,7 @@ select {
   font-weight: 700;
   color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   margin-bottom: 12px;
 }
 
@@ -113,12 +117,20 @@ select {
 ========================================================= */
 
 .nav-item {
+  width: 100%;
+  border: none;
+  background: transparent;
   padding: 14px 16px;
   border-radius: 12px;
   cursor: pointer;
   margin-bottom: 8px;
   transition: 0.2s;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-align: left;
 }
 
 .nav-item:hover {
@@ -182,6 +194,12 @@ select {
   color: #9ca3af;
   cursor: pointer;
   font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
 }
 
 .delete-chat:hover {
@@ -233,6 +251,10 @@ select {
   border-radius: 12px;
   cursor: pointer;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .logout-btn:hover {
@@ -250,6 +272,18 @@ select {
   border-bottom: 1px solid #e5e7eb;
   padding-bottom: 20px;
   margin-bottom: 20px;
+}
+
+.header-actions,
+.login-side,
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-actions {
+  justify-content: flex-end;
 }
 
 .brand h1 {
@@ -286,6 +320,55 @@ select {
 .leaders span {
   margin-top: 8px;
   font-size: 13px;
+  text-align: center;
+  max-width: 96px;
+}
+
+/* =========================================================
+   LANGUAGE TOGGLE
+========================================================= */
+
+.language-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.language-control.compact {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.language-toggle {
+  display: inline-flex;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.language-toggle button {
+  border: none;
+  background: white;
+  color: #374151;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 72px;
+}
+
+.language-toggle button + button {
+  border-left: 1px solid #d1d5db;
+}
+
+.language-toggle button.active {
+  background: #0b4ea2;
+  color: white;
 }
 
 /* =========================================================
@@ -339,6 +422,7 @@ select {
   padding: 18px;
   border-radius: 20px;
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 
 .message.user .message-content {
@@ -378,6 +462,10 @@ select {
   padding: 14px 24px;
   border-radius: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
 }
 
 /* =========================================================
@@ -395,6 +483,10 @@ select {
 
 .hero h2 {
   font-size: 56px;
+  line-height: 1.12;
+  max-width: 900px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
 }
 
 .hero p {
@@ -458,11 +550,24 @@ select {
   gap: 24px;
 }
 
+.login-leaders div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .login-leaders img {
   width: 72px;
   height: 72px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.login-leaders span {
+  margin-top: 8px;
+  font-size: 13px;
+  text-align: center;
+  max-width: 96px;
 }
 
 .login-form {
@@ -485,6 +590,8 @@ select {
   color: white;
   padding: 16px;
   border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
 }
 
 .login-error {
@@ -531,6 +638,12 @@ select {
   color: white;
   padding: 12px 18px;
   border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
 }
 
 .users-table-card table {
@@ -551,6 +664,14 @@ select {
   border-radius: 12px;
   cursor: pointer;
   margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.page-actions .back-btn {
+  margin-bottom: 0;
 }
 
 /* =========================================================
@@ -656,6 +777,14 @@ select {
   font-weight: 600;
 
   transition: 0.2s;
+  
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
 
 }
 
@@ -717,7 +846,7 @@ select {
 
   text-transform: uppercase;
 
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
 
 }
 
@@ -796,6 +925,12 @@ select {
   font-size: 13px;
 
   font-weight: 600;
+  
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 8px;
 
 }
 
@@ -859,6 +994,82 @@ select {
 
 @media (max-width: 1024px) {
 
+  .layout {
+
+    flex-direction: column;
+
+    height: auto;
+
+    min-height: 100vh;
+
+  }
+
+  .sidebar {
+
+    width: 100%;
+
+    border-right: none;
+
+    border-bottom: 1px solid #e5e7eb;
+
+  }
+
+  .main {
+
+    min-height: 100vh;
+
+  }
+
+  .header,
+  .login-top,
+  .header-actions,
+  .login-side,
+  .page-actions {
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+  }
+
+  .leaders,
+  .login-leaders {
+
+    flex-wrap: wrap;
+
+  }
+
+  .brand h1,
+  .login-brand h1 {
+
+    font-size: 40px;
+
+  }
+
+  .hero h2 {
+
+    font-size: 40px;
+
+  }
+
+  .message-content {
+
+    max-width: 92%;
+
+  }
+
+  .chat-input-form {
+
+    border-radius: 16px;
+
+  }
+
+  .create-user-card {
+
+    flex-direction: column;
+
+  }
+
   .upload-card {
 
     flex-direction: column;
@@ -870,6 +1081,70 @@ select {
   .upload-card button {
 
     width: 100%;
+
+  }
+
+}
+
+@media (max-width: 640px) {
+
+  .main,
+  .users-page,
+  .documents-page {
+
+    padding: 16px;
+
+  }
+
+  .chat-window {
+
+    padding: 16px 0;
+
+  }
+
+  .chat-input-form {
+
+    padding: 12px;
+
+    gap: 10px;
+
+  }
+
+  .chat-input-form button span {
+
+    display: none;
+
+  }
+
+  .login-layout {
+
+    padding: 16px;
+
+  }
+
+  .login-card {
+
+    padding: 24px;
+
+  }
+
+  .login-brand {
+
+    align-items: flex-start;
+
+  }
+
+  .login-form {
+
+    width: 100%;
+
+    margin: 48px auto 24px;
+
+  }
+
+  .language-control.compact {
+
+    align-items: flex-start;
 
   }
 

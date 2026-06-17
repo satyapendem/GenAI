@@ -8,6 +8,7 @@ import Documents
   from "./pages/Documents";
 
 import { sendMessage } from "./api";
+import LanguageToggle from "./components/LanguageToggle";
 
 import {
   createConversation,
@@ -15,29 +16,22 @@ import {
   getMessages,
 } from "./conversations";
 
-import { getCurrentUser } from "./user";
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGES,
+  getInitialLanguage,
+  getText,
+} from "./i18n";
 
-import logo from "./assets/ap_logo.png";
+import { getCurrentUser } from "./user";
+import { getChatLanguages } from "./api";
+
 import cm from "./assets/cm.png";
 import deputy from "./assets/deputy_cm.png";
 import minister from "./assets/it_minister.png";
 
 import "./styles.css";
 import Sidebar from "./components/Sidebar";
-
-const CONTENT = {
-  subtitle:
-    "AI Assistant for Andhra Pradesh Government",
-
-  title:
-    "How can I help you today?",
-
-  description:
-    "Ask APGovAI about Government Orders, Budgets, Policies, Circulars, Reports and Acts.",
-
-  placeholder:
-    "Ask APGovAI...",
-};
 
 export default function App() {
 
@@ -68,6 +62,32 @@ export default function App() {
 
   const [page, setPage] = useState("chat");
 
+  const [language, setLanguage] =
+    useState(getInitialLanguage);
+
+  const [languageOptions,
+    setLanguageOptions] =
+    useState(LANGUAGES);
+
+  const t = getText(language);
+
+  function updateLanguage(nextLanguage) {
+    const supported = languageOptions.some(
+      option => option.code === nextLanguage
+    );
+    const resolvedLanguage = supported
+      ? nextLanguage
+      : DEFAULT_LANGUAGE;
+
+    localStorage.setItem(
+      "language",
+      resolvedLanguage
+    );
+
+    setLanguage(resolvedLanguage);
+
+  }
+
   useEffect(() => {
 
     if (!token) {
@@ -80,7 +100,53 @@ export default function App() {
 
     loadUser();
 
+    loadLanguages();
+
   }, [token]);
+
+  async function loadLanguages() {
+    try {
+      const data = await getChatLanguages();
+      const options = Array.isArray(data?.languages)
+        ? data.languages
+            .filter(
+              option =>
+                option &&
+                typeof option.code === "string" &&
+                typeof option.label === "string"
+            )
+            .map(
+              option => ({
+                code: option.code,
+                label: option.label,
+              })
+            )
+        : [];
+
+      if (options.length > 0) {
+        setLanguageOptions(options);
+
+        if (
+          !options.some(
+            option => option.code === language
+          )
+        ) {
+          const fallback =
+            options.some(
+              option =>
+                option.code === DEFAULT_LANGUAGE
+            )
+              ? DEFAULT_LANGUAGE
+              : options[0].code;
+
+          updateLanguage(fallback);
+        }
+      }
+    } catch {
+      // Keep the bundled defaults so the app remains usable if the endpoint is unavailable.
+      setLanguageOptions(LANGUAGES);
+    }
+  }
 
   async function loadUser() {
 
@@ -209,6 +275,8 @@ export default function App() {
 
         question,
 
+        language,
+
         chunk => {
 
           setMessages(
@@ -262,6 +330,12 @@ export default function App() {
         onLogin={
           setToken
         }
+        language={language}
+        onLanguageChange={
+          updateLanguage
+        }
+        languageOptions={languageOptions}
+        t={t}
       />
 
     );
@@ -270,19 +344,38 @@ export default function App() {
 
   if (page === "users") {
     return (
-      <Users setPage={setPage} />
+      <Users
+        setPage={setPage}
+        language={language}
+        onLanguageChange={
+          updateLanguage
+        }
+        languageOptions={languageOptions}
+        t={t}
+      />
     );
   }
 
   if (page === "documents") {
     return (
-      <Documents setPage={setPage} />
+      <Documents
+        setPage={setPage}
+        language={language}
+        onLanguageChange={
+          updateLanguage
+        }
+        languageOptions={languageOptions}
+        t={t}
+      />
     );
   }
 
   return (
 
-    <div className="layout">
+    <div
+      className="layout"
+      lang={language}
+    >
 
       <Sidebar
         currentUser={user}
@@ -292,6 +385,7 @@ export default function App() {
         onNewChat={createNewChat}
         setPage={setPage}
         page={page}
+        t={t}
       />
 
       <div className="main">
@@ -305,14 +399,24 @@ export default function App() {
               <h1>APGovAI</h1>
 
               <p className="subtitle">
-                AI Assistant for Andhra Pradesh Government
+                {t.app.subtitle}
               </p>
 
             </div>
 
           </div>
 
-          <div className="leaders">
+          <div className="header-actions">
+
+            <LanguageToggle
+              language={language}
+              onChange={updateLanguage}
+              label={t.common.language}
+              compact
+              options={languageOptions}
+            />
+
+            <div className="leaders">
 
             <div>
 
@@ -322,7 +426,7 @@ export default function App() {
               />
 
               <span>
-                Chief Minister
+                {t.leaders.chiefMinister}
               </span>
 
             </div>
@@ -335,7 +439,7 @@ export default function App() {
               />
 
               <span>
-                Deputy CM
+                {t.leaders.deputyChiefMinister}
               </span>
 
             </div>
@@ -348,8 +452,10 @@ export default function App() {
               />
 
               <span>
-                IT Minister
+                {t.leaders.itMinister}
               </span>
+
+            </div>
 
             </div>
 
@@ -366,12 +472,12 @@ export default function App() {
               <div className="hero">
 
                 <h2>
-                  {CONTENT.title}
+                  {t.app.title}
                 </h2>
 
                 <p>
                   {
-                    CONTENT.description
+                    t.app.description
                   }
                 </p>
 
@@ -384,14 +490,16 @@ export default function App() {
           <ChatWindow
             messages={messages}
             loading={loading}
+            t={t}
           />
 
           <ChatInput
             loading={loading}
             onSend={handleSend}
             placeholder={
-              CONTENT.placeholder
+              t.app.placeholder
             }
+            sendLabel={t.chat.send}
           />
 
         </section>

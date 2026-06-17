@@ -4,16 +4,26 @@ import {
 } from "react";
 
 import {
+    FiChevronLeft,
+    FiTrash2,
+    FiUpload,
+} from "react-icons/fi";
 
+import {
     getDocuments,
-
     uploadDocument,
-
     deleteDocument,
-
 } from "../documents";
 
-export default function Documents({setPage}) {
+import LanguageToggle from "../components/LanguageToggle";
+
+export default function Documents({
+    setPage,
+    language,
+    onLanguageChange,
+    languageOptions,
+    t,
+}) {
 
     const [
         documents,
@@ -29,6 +39,19 @@ export default function Documents({setPage}) {
         collection,
         setCollection,
     ] = useState("gos");
+
+    const collectionLabels = {
+        gos: t.documents.governmentOrders,
+        budgets: t.documents.budgets,
+        reports: t.documents.reports,
+        datasets: t.documents.datasets,
+    };
+
+    const statusLabels = {
+        completed: t.documents.completed,
+        processing: t.documents.processing,
+        failed: t.documents.failed,
+    };
 
     async function loadDocuments() {
 
@@ -50,11 +73,8 @@ export default function Documents({setPage}) {
         if (!file) return;
 
         await uploadDocument(
-
             file,
-
             collection,
-
         );
 
         setFile(null);
@@ -65,146 +85,189 @@ export default function Documents({setPage}) {
 
     return (
 
-        <div className="documents-page">
-            <button
-                className="back-btn"
-                onClick={() =>
-                    setPage("chat")
-                }
-            >
-                ← Back
-            </button>
-            <h2>
-                Document Management
-            </h2>
+        <div
+            className="documents-page"
+            lang={language}
+        >
+
+            <div className="page-header">
+
+                <div className="page-actions">
+
+                    <button
+                        className="back-btn"
+                        onClick={() =>
+                            setPage("chat")
+                        }
+                        type="button"
+                    >
+                        <FiChevronLeft aria-hidden="true" />
+
+                        <span>
+                            {t.common.back}
+                        </span>
+                    </button>
+
+                    <LanguageToggle
+                        language={language}
+                        onChange={onLanguageChange}
+                        label={t.common.language}
+                        compact
+                        options={languageOptions}
+                    />
+
+                </div>
+
+                <h2>
+                    {t.documents.title}
+                </h2>
+
+            </div>
 
             <div className="upload-card">
 
                 <select
-
                     value={collection}
-
                     onChange={e =>
                         setCollection(
                             e.target.value
                         )
                     }
-
                 >
 
                     <option value="gos">
-                        Government Orders
+                        {t.documents.governmentOrders}
                     </option>
 
                     <option value="budgets">
-                        Budgets
+                        {t.documents.budgets}
                     </option>
 
                     <option value="reports">
-                        Reports
+                        {t.documents.reports}
                     </option>
 
                     <option value="datasets">
-                        Datasets
+                        {t.documents.datasets}
                     </option>
 
                 </select>
 
                 <input
-
                     type="file"
-
                     onChange={e =>
                         setFile(
                             e.target.files[0]
                         )
                     }
-
                 />
 
                 <button
                     onClick={upload}
+                    type="button"
                 >
 
-                    Upload
+                    <FiUpload aria-hidden="true" />
+
+                    <span>
+                        {t.common.upload}
+                    </span>
 
                 </button>
 
             </div>
 
-            <table>
+            <div className="documents-table-card">
 
-                <thead>
+                <table className="documents-table">
 
-                    <tr>
+                    <thead>
 
-                        <th>File</th>
+                        <tr>
 
-                        <th>Collection</th>
+                            <th>{t.documents.file}</th>
 
-                        <th>Status</th>
+                            <th>{t.documents.collection}</th>
 
-                        <th>Action</th>
+                            <th>{t.documents.status}</th>
 
-                    </tr>
+                            <th>{t.documents.action}</th>
 
-                </thead>
+                        </tr>
 
-                <tbody>
+                    </thead>
 
-                    {
+                    <tbody>
 
-                        documents.map(
-                            doc => (
+                        {
+                            documents.map(
+                                doc => (
 
-                                <tr
-                                    key={doc.id}
-                                >
+                                    <tr
+                                        key={doc.id}
+                                    >
 
-                                    <td>
-                                        {doc.filename}
-                                    </td>
+                                        <td>
+                                            {doc.filename}
+                                        </td>
 
-                                    <td>
-                                        {doc.collection}
-                                    </td>
+                                        <td>
+                                            {
+                                                collectionLabels[
+                                                doc.collection
+                                                ] || doc.collection
+                                            }
+                                        </td>
 
-                                    <td>
-                                        {doc.status}
-                                    </td>
+                                        <td>
+                                            <span
+                                                className={
+                                                    `status ${doc.status}`
+                                                }
+                                            >
+                                                {
+                                                    statusLabels[
+                                                    doc.status
+                                                    ] || doc.status
+                                                }
+                                            </span>
+                                        </td>
 
-                                    <td>
+                                        <td>
 
-                                        <button
+                                            <button
+                                                className="action-btn delete"
+                                                type="button"
+                                                onClick={async () => {
 
-                                            onClick={async () => {
+                                                    await deleteDocument(
+                                                        doc.id
+                                                    );
 
-                                                await deleteDocument(
-                                                    doc.id
-                                                );
+                                                    loadDocuments();
 
-                                                loadDocuments();
+                                                }}
+                                            >
+                                                <FiTrash2 aria-hidden="true" />
 
-                                            }}
+                                                <span>
+                                                    {t.common.delete}
+                                                </span>
+                                            </button>
 
-                                        >
+                                        </td>
 
-                                            Delete
+                                    </tr>
 
-                                        </button>
-
-                                    </td>
-
-                                </tr>
-
+                                )
                             )
-                        )
+                        }
 
-                    }
+                    </tbody>
 
-                </tbody>
+                </table>
 
-            </table>
+            </div>
 
         </div>
 

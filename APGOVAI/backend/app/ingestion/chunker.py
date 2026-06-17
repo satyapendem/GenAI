@@ -1,95 +1,249 @@
 """
-Unicode-safe semantic chunker for Telugu + English government documents.
+Unicode-safe semantic chunker for Telugu, English, and mixed documents.
 
-Problems with the old chunker:
-  1. Character-level slicing breaks Telugu grapheme clusters.
-     Telugu syllables span 3–6 codepoints. Cutting at char position 800
-     can split a syllable mid-character, producing garbage like "బడ్జె" → "బడ్" + "జె".
-  2. No sentence-awareness — splits mid-sentence.
-  3. Metadata not attached to chunks.
-  4. CHUNK_SIZE mismatch between .env (1500) and hardcoded config (800).
-
-Fix strategy:
-  1. Split on sentence boundaries first (Telugu "।" and ". " and "\n\n").
-  2. Accumulate sentences until CHUNK_SIZE is approached.
-  3. Overlap by re-including last N chars of previous chunk.
-  4. Never split inside a Unicode grapheme cluster.
-
-Telugu sentence boundaries:
-  - "।"  (Devanagari/Telugu danda U+0964)
-  - "॥"  (double danda U+0965)
-  - "\n" (line breaks common in GOs)
-  - ". " (English sentences)
+The chunker avoids cutting Telugu combining sequences, preserves paragraph
+boundaries from extraction, and stores chunk-level language metadata.
 """
+
+from __future__ import annotations
 
 import re
 import unicodedata
+from typing import Optional
+
 from app.core.config import CHUNK_SIZE, CHUNK_OVERLAP
+from app.utils.language import (
+    document_language_metadata,
+)
 
-# ── Sentence splitter ─────────────────────────────────────────────────────────
-
-# Splits on: Telugu dandas, double newlines, ".\n", ". " followed by capital/Telugu
 _SENTENCE_SPLIT = re.compile(
-    r"(?<=[।॥])\s*"  # after Telugu danda
-    r"|(?<=\.)\s+(?=[A-Z\u0C00-\u0C7F])"  # after ". " before capital/Telugu
-    r"|\n{2,}"  # paragraph breaks
-    r"|\n(?=[A-Z\u0C00-\u0C7F])",  # newline before capital/Telugu
+    r"(?<=[।॥.!?])\s+(?=[A-Z0-9\u0C00-\u0C7F])"
+    r"|(?<=[।॥.!?])\n+"
+    r"|\n{2,}"
+    r"|\n(?=\[PAGE\s+\d+\])"
+    r"|\n(?=\[SHEET\s+.+?\])",
     re.UNICODE,
 )
 
+_PREFERRED_BREAKS = (
+    "\n",
+    ". ",
+    "? ",
+    "! ",
+    "। ",
+    "॥ ",
+    "; ",
+    ", ",
+    " ",
+)
 
-def _split_sentences(text: str) -> list[str]:
-    """Split text into sentences, preserving Telugu structure."""
-    parts = _SENTENCE_SPLIT.split(text)
-    return [p.strip() for p in parts if p.strip()]
+
+def _is_combining_mark(
+    ch: str,
+) -> bool:
+    if not ch:
+        return False
+
+    return unicodedata.category(ch) in (
+        "Mn",
+        "Mc",
+        "Me",
+    )
 
 
-# ── Safe character boundary ───────────────────────────────────────────────────
-
-
-def _safe_truncate(text: str, max_chars: int) -> str:
+def _is_unsafe_boundary(
+    text: str,
+    index: int,
+) -> bool:
     """
-    Truncate text without splitting a Unicode combining sequence.
-    Telugu vowel signs (U+0C3E–U+0C4C) and virama (U+0C4D) are
-    combining characters — we must not break before them.
+    Return True if cutting at index would split a Unicode cluster.
+
+    Telugu vowel signs often follow the base character. A virama (U+0C4D)
+    also joins with the following consonant, so a chunk must not end there.
     """
+    if index <= 0 or index >= len(text):
+        return False
+
+    previous = text[index - 1]
+    current = text[index]
+
+    return (
+        _is_combining_mark(current)
+        or previous == "\u0c4d"
+        or previous == "\u200d"
+        or current == "\u200d"
+    )
+
+
+def _safe_boundary(
+    text: str,
+    index: int,
+) -> int:
+    """Move index backward until it is safe to cut."""
+    index = min(
+        max(index, 1),
+        len(text),
+    )
+
+    while index > 1 and _is_unsafe_boundary(
+        text,
+        index,
+    ):
+        index -= 1
+
+    return index
+
+
+def _safe_truncate(
+    text: str,
+    max_chars: int,
+) -> str:
+    """Truncate text without splitting a Unicode combining sequence."""
     if len(text) <= max_chars:
         return text
 
-    # Walk back from max_chars until we're not mid-combining-sequence
-    i = max_chars
-    while i > 0:
-        ch = text[i]
-        cat = unicodedata.category(ch)
-        # Mn = non-spacing mark (vowel signs, virama)
-        # Mc = spacing combining mark
-        if cat not in ("Mn", "Mc"):
-            break
-        i -= 1
+    boundary = _safe_boundary(
+        text,
+        max_chars,
+    )
 
-    return text[:i]
+    return text[:boundary].rstrip()
 
 
-# ── Main chunking function ────────────────────────────────────────────────────
+def _safe_tail(
+    text: str,
+    max_chars: int,
+) -> str:
+    """Return a suffix that does not start with a combining mark."""
+    if len(text) <= max_chars:
+        return text
+
+    start = len(text) - max_chars
+
+    while start < len(text) and _is_combining_mark(text[start]):
+        start += 1
+
+    return text[start:].lstrip()
+
+
+def _find_split_index(
+    text: str,
+    max_chars: int,
+) -> int:
+    """Find a readable split point at or before max_chars."""
+    window = text[:max_chars]
+    best = -1
+
+    for marker in _PREFERRED_BREAKS:
+        position = window.rfind(marker)
+
+        if position > best:
+            best = position + len(marker)
+
+    if best >= int(max_chars * 0.45):
+        return _safe_boundary(
+            text,
+            best,
+        )
+
+    return _safe_boundary(
+        text,
+        max_chars,
+    )
+
+
+def _split_long_segment(
+    segment: str,
+    max_chars: int,
+) -> list[str]:
+    """Split a long sentence/paragraph without losing text."""
+    remaining = segment.strip()
+    parts = []
+
+    while len(remaining) > max_chars:
+        split_at = _find_split_index(
+            remaining,
+            max_chars,
+        )
+
+        if split_at <= 0:
+            split_at = max_chars
+
+        part = remaining[:split_at].strip()
+
+        if part:
+            parts.append(part)
+
+        remaining = remaining[split_at:].strip()
+
+    if remaining:
+        parts.append(remaining)
+
+    return parts
+
+
+def _split_sentences(
+    text: str,
+) -> list[str]:
+    """Split text into Telugu/English sentence-like segments."""
+    parts = _SENTENCE_SPLIT.split(text)
+    segments = []
+
+    for part in parts:
+        part = part.strip()
+
+        if not part:
+            continue
+
+        if len(part) > CHUNK_SIZE:
+            segments.extend(
+                _split_long_segment(
+                    part,
+                    CHUNK_SIZE,
+                )
+            )
+        else:
+            segments.append(part)
+
+    return segments
+
+
+def _chunk_metadata(
+    base_metadata: dict,
+    chunk_text_value: str,
+    chunk_idx: int,
+) -> dict:
+    """Build metadata for a single chunk."""
+    language_metadata = document_language_metadata(
+        chunk_text_value,
+    )
+
+    return {
+        **base_metadata,
+        **language_metadata,
+        "document_language": base_metadata.get(
+            "document_language",
+            base_metadata.get("language", language_metadata["language"]),
+        ),
+        "chunk_index": chunk_idx,
+    }
 
 
 def chunk_text(
     text: str,
-    metadata: dict | None = None,
+    metadata: Optional[dict] = None,
 ) -> list[dict]:
     """
     Split document text into overlapping chunks.
 
-    Returns list of dicts:
-        {
-            "text": str,          # chunk content
-            "metadata": dict,     # inherited + chunk-level keys
-            "chunk_index": int,   # position within document
-        }
-
-    Args:
-        text:     Full extracted document text.
-        metadata: Document-level metadata to attach to every chunk.
+    Returns:
+        [
+            {
+                "text": str,
+                "metadata": dict,
+                "chunk_index": int,
+            }
+        ]
     """
     if not text or not text.strip():
         return []
@@ -100,44 +254,108 @@ def chunk_text(
     chunks = []
     current = ""
     chunk_idx = 0
-    overlap_tail = ""  # last N chars of previous chunk for overlap
+    overlap_tail = ""
 
     for sentence in sentences:
-        # Would adding this sentence exceed CHUNK_SIZE?
-        candidate = (overlap_tail + " " + current + " " + sentence).strip()
+        candidate_parts = [
+            part
+            for part in (
+                overlap_tail,
+                current,
+                sentence,
+            )
+            if part
+        ]
+        candidate = " ".join(candidate_parts).strip()
 
         if len(candidate) <= CHUNK_SIZE:
-            current = (current + " " + sentence).strip()
-        else:
-            # Flush current chunk
-            if current:
-                safe_chunk = _safe_truncate(current, CHUNK_SIZE)
-                chunks.append(
-                    {
-                        "text": safe_chunk,
-                        "metadata": {**metadata, "chunk_index": chunk_idx},
-                        "chunk_index": chunk_idx,
-                    }
+            current = " ".join(
+                part
+                for part in (
+                    current,
+                    sentence,
                 )
-                chunk_idx += 1
+                if part
+            ).strip()
+            continue
 
-                # Build overlap tail from end of this chunk
-                overlap_tail = (
-                    safe_chunk[-CHUNK_OVERLAP:]
-                    if len(safe_chunk) > CHUNK_OVERLAP
-                    else safe_chunk
+        if current:
+            safe_chunk = _safe_truncate(
+                current,
+                CHUNK_SIZE,
+            )
+
+            chunks.append(
+                {
+                    "text": safe_chunk,
+                    "metadata": _chunk_metadata(
+                        metadata,
+                        safe_chunk,
+                        chunk_idx,
+                    ),
+                    "chunk_index": chunk_idx,
+                }
+            )
+            chunk_idx += 1
+            overlap_tail = _safe_tail(
+                safe_chunk,
+                CHUNK_OVERLAP,
+            )
+
+        current = " ".join(
+            part
+            for part in (
+                overlap_tail,
+                sentence,
+            )
+            if part
+        ).strip()
+
+        while len(current) > CHUNK_SIZE:
+            safe_chunk = _safe_truncate(
+                current,
+                CHUNK_SIZE,
+            )
+
+            chunks.append(
+                {
+                    "text": safe_chunk,
+                    "metadata": _chunk_metadata(
+                        metadata,
+                        safe_chunk,
+                        chunk_idx,
+                    ),
+                    "chunk_index": chunk_idx,
+                }
+            )
+            chunk_idx += 1
+            overlap_tail = _safe_tail(
+                safe_chunk,
+                CHUNK_OVERLAP,
+            )
+            current = " ".join(
+                part
+                for part in (
+                    overlap_tail,
+                    current[len(safe_chunk) :].strip(),
                 )
+                if part
+            ).strip()
 
-            # Start new chunk with overlap
-            current = (overlap_tail + " " + sentence).strip()
-
-    # Flush final chunk
     if current.strip():
-        safe_chunk = _safe_truncate(current.strip(), CHUNK_SIZE)
+        safe_chunk = _safe_truncate(
+            current.strip(),
+            CHUNK_SIZE,
+        )
+
         chunks.append(
             {
                 "text": safe_chunk,
-                "metadata": {**metadata, "chunk_index": chunk_idx},
+                "metadata": _chunk_metadata(
+                    metadata,
+                    safe_chunk,
+                    chunk_idx,
+                ),
                 "chunk_index": chunk_idx,
             }
         )

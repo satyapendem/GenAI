@@ -1,6 +1,7 @@
 from fastapi import (
     APIRouter,
     Depends,
+    HTTPException,
 )
 
 from fastapi.responses import (
@@ -27,6 +28,15 @@ from app.utils.prompt_builder import (
     build_prompt,
 )
 
+from app.utils.language import (
+    SUPPORTED_LANGUAGES,
+    resolve_language,
+)
+
+from app.database.schemas import (
+    ChatRequest,
+)
+
 from app.llm.ollama_client import (
     stream_generate,
 )
@@ -34,25 +44,76 @@ from app.llm.ollama_client import (
 from app.services.conversation_service import (
     save_message,
     get_conversation_context,
+    get_conversation,
 )
 
 router = APIRouter()
 
 
+@router.get("/chat/languages")
+def chat_languages():
+
+    return {
+        "default": "auto",
+        "languages": [
+            {
+                "id": language,
+                "code": details["code"],
+                "label": details["label"],
+            }
+            for language, details in SUPPORTED_LANGUAGES.items()
+        ],
+    }
+
+
 @router.post("/chat")
 def chat(
-    body: dict,
+    body: ChatRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
 
-    question = body.get("question", "").strip()
+    question = body.question.strip()
 
-    conversation_id = body.get("conversation_id")
+    conversation_id = body.conversation_id
 
     if not question:
 
-        return {"error": "Question required"}
+        raise HTTPException(
+            status_code=400,
+            detail="Question required",
+        )
+
+    if not conversation_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Conversation required",
+        )
+
+    conversation = get_conversation(
+        db,
+        conversation_id,
+    )
+
+    if not conversation:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found",
+        )
+
+    if str(conversation.user_id) != str(current_user.id):
+
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied",
+        )
+
+    language = resolve_language(
+        body.language,
+        question,
+    )
 
     #
     # Save user message
@@ -89,6 +150,7 @@ def chat(
         query=question,
         docs=docs,
         history=history,
+        language=language,
     )
 
     def generate():
@@ -114,5 +176,8 @@ def chat(
 
     return StreamingResponse(
         generate(),
-        media_type="text/plain",
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "X-APGovAI-Language": language,
+        },
     )
